@@ -5,7 +5,7 @@ pub struct Config {
     pub target: String,
     pub connections: usize,
     pub concurrency: usize,
-
+    pub adaptive: bool,
     pub hold: bool,
     pub infinite: bool,
     pub http: bool,
@@ -36,7 +36,7 @@ impl Config {
             target: args[1].clone(),
             connections: args[2].parse().unwrap(),
             concurrency: args[3].parse().unwrap(),
-
+            adaptive: false, // TODO: implement adaptive mode
             hold: args.contains(&"hold".to_string()),
             infinite: args.contains(&"infinite".to_string()),
             http: args.contains(&"http".to_string()),
