@@ -9,4 +9,5 @@ reqwest = "0.13.2"
 tokio = { version = "1.49.0", features = ["full"] }
 rand = "0.8"
 colored = "2"
+chrono = "0.4.43"
 
