@@ -67,7 +67,6 @@ impl Stats {
 
                 last_success = success;
 
-                // DOĞRU kullanım
                 stats.metrics.update(speed);
 
                 let peak =
@@ -76,6 +75,12 @@ impl Stats {
                 let avg =
                     stats.metrics.avg_speed();
 
+                // update terminal title
+                print!(
+                    "\x1b]0;dolphinx | {} conn/sec\x07",
+                    speed
+                );
+
                 println!(
                     "{} ✓ {} ✗ {} ⚡ {} peak={} avg={}",
                     "[STATS]".cyan(),
@@ -83,7 +88,7 @@ impl Stats {
                     failed.to_string().red(),
                     speed.to_string().yellow(),
                     peak.to_string().magenta(),
-                    avg.to_string().blue()
+                    avg.to_string().blue(),
                 );
 
             }
