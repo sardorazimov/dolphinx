@@ -11,6 +11,8 @@ pub struct Config {
     pub infinite: bool,
     pub http: bool,
 
+    pub rate: Option<u64>, // connections per second
+
 }
 
 impl Config {
@@ -22,10 +24,12 @@ impl Config {
         if args.len() < 4 {
 
             println!("Usage:");
-            println!("multi-stresser <target> <connections> <concurrency> [hold] [infinite] [http]");
+            println!("multi-stresser <target> <connections> <concurrency> [hold] [infinite] [http] [rate N]");
             std::process::exit(1);
 
         }
+
+        let rate = parse_rate(&args);
 
         Self {
 
@@ -37,8 +41,30 @@ impl Config {
             infinite: args.contains(&"infinite".to_string()),
             http: args.contains(&"http".to_string()),
 
+            rate,
+
         }
 
     }
+
+}
+
+fn parse_rate(args: &[String]) -> Option<u64> {
+
+    for i in 0..args.len() {
+
+        if args[i] == "rate" {
+
+            if i + 1 < args.len() {
+
+                return args[i + 1].parse().ok();
+
+            }
+
+        }
+
+    }
+
+    None
 
 }

@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "attack-tools/multi-stresser",
-    "defense-lab/analyzer",
+    "attack-tools/dolphinx",
+    "defense-lab/analyzer"
 ]
+
 resolver = "2"
