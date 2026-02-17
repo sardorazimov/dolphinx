@@ -1,27 +1,60 @@
-name: Rust CI
+name: Rust CI/CD
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  release:
+    types: [created]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build workspace
-        run: cargo build --workspace --verbose
+        run: cargo build --workspace --release
 
       - name: Run tests
-        run: cargo test --workspace --verbose
+        run: cargo test --workspace
+
+  release:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binaries
+        run: cargo build --workspace --release
+
+      - name: Upload analyzer binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyzer
+          path: target/release/analyzer
+
+      - name: Upload multi-stresser binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-stresser
+          path: target/release/multi-stresser
