@@ -1,0 +1,12 @@
+# Rust
+target/
+**/target/
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
