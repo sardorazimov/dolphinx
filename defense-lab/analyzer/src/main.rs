@@ -1,76 +1,108 @@
 use tokio::net::TcpListener;
+use tokio::io::AsyncReadExt;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use serde_json::json;
-use chrono::Utc;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::net::SocketAddr;
 
-const LISTEN_ADDR: &str = "0.0.0.0:8081";
+use std::fs::{OpenOptions, create_dir_all};
+use std::io::Write;
+
+use chrono::{Utc, Datelike};
+
+
+
+
 const ATTACK_THRESHOLD: usize = 100;
 
-type SharedMap = Arc<Mutex<HashMap<String, usize>>>;
 
 #[tokio::main]
 async fn main() {
-    println!("Analyzer started on {}", LISTEN_ADDR);
-    log_attack("127.0.0.1", 999);
 
-    let listener = TcpListener::bind(LISTEN_ADDR)
+    let listener = TcpListener::bind("0.0.0.0:8081")
         .await
         .expect("Failed to bind");
 
-    let connections: SharedMap =
+    println!("Analyzer listening on port 8081");
+
+    let connections: Arc<Mutex<HashMap<String, usize>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
     loop {
-        match listener.accept().await {
-            Ok((_, addr)) => {
-                handle_connection(addr, &connections);
+
+        let (mut socket, addr) = listener.accept().await.unwrap();
+
+        let ip = addr.ip().to_string();
+
+        let connections = connections.clone();
+
+        tokio::spawn(async move {
+
+            let mut buffer = [0; 1024];
+
+            let _ = socket.read(&mut buffer).await;
+
+            let mut map = connections.lock().unwrap();
+
+            let count = map.entry(ip.clone()).or_insert(0);
+
+            *count += 1;
+
+            println!("{} -> {}", ip, count);
+
+            if *count == ATTACK_THRESHOLD {
+
+                println!("ATTACK DETECTED: {}", ip);
+
+                log_attack(&ip, *count);
+
             }
 
-            Err(e) => {
-                eprintln!("Accept error: {}", e);
-            }
-        }
+        });
+
     }
+
 }
 
-fn handle_connection(addr: SocketAddr, connections: &SharedMap) {
-    let ip = addr.ip().to_string();
 
-    let mut map = connections.lock().unwrap();
-
-    let count = map.entry(ip.clone()).or_insert(0);
-
-    *count += 1;
-
-    println!("{} -> {}", ip, count);
-
-    if *count == ATTACK_THRESHOLD {
-        println!("ATTACK DETECTED: {}", ip);
-
-        log_attack(&ip, *count);
-    }
-}
-
+// NEW: production log rotation system
 fn log_attack(ip: &str, connections: usize) {
-    let log_entry = json!({
-        "ip": ip,
-        "connections": connections,
-        "threat": "HIGH",
-        "timestamp": Utc::now().to_rfc3339()
-    });
 
-    let mut file = OpenOptions::new()
+    // create logs folder
+    create_dir_all("logs").ok();
+
+    let now = Utc::now();
+
+    let filename = format!(
+        "logs/attack-{:04}-{:02}-{:02}.json",
+        now.year(),
+        now.month(),
+        now.day()
+    );
+
+    let timestamp = now.to_rfc3339();
+
+    let threat = if connections > 1000 {
+        "CRITICAL"
+    } else if connections > 500 {
+        "HIGH"
+    } else {
+        "MEDIUM"
+    };
+
+    let log_entry = format!(
+        "{{\"ip\":\"{}\",\"connections\":{},\"threat\":\"{}\",\"timestamp\":\"{}\"}}\n",
+        ip,
+        connections,
+        threat,
+        timestamp
+    );
+
+    if let Ok(mut file) = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("attack-log.json")
-        .expect("Failed to open log file");
+        .open(filename)
+    {
+        let _ = file.write_all(log_entry.as_bytes());
+    }
 
-    writeln!(file, "{}", log_entry.to_string())
-        .expect("Failed to write log");
-
-    println!("Logged attack from {}", ip);
 }

@@ -10,16 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-
   build:
-
     name: Build binaries
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         include:
-
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             suffix: linux
@@ -34,11 +31,11 @@ jobs:
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            suffix: windows.exe
+            suffix: windows
 
     steps:
-
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -49,35 +46,31 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: sudo apt-get update && sudo apt-get install musl-tools
 
-      - name: Build
+      - name: Build workspace
         run: cargo build --workspace --release --target ${{ matrix.target }}
 
-      - name: Strip binaries (Linux/macOS)
+      - name: Prepare dist folder
+        run: mkdir -p dist
+
+      - name: Copy binaries (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          strip target/${{ matrix.target }}/release/analyzer || true
-          strip target/${{ matrix.target }}/release/multi-stresser || true
+          cp target/${{ matrix.target }}/release/dolphinx dist/dolphinx-${{ matrix.suffix }} || true
+          cp target/${{ matrix.target }}/release/analyzer dist/analyzer-${{ matrix.suffix }} || true
 
-      - name: Rename binaries
+      - name: Copy binaries (Windows)
+        if: runner.os == 'Windows'
         run: |
-          mkdir dist
-
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp target/${{ matrix.target }}/release/analyzer.exe dist/analyzer-${{ matrix.suffix }}
-            cp target/${{ matrix.target }}/release/multi-stresser.exe dist/multi-stresser-${{ matrix.suffix }}
-          else
-            cp target/${{ matrix.target }}/release/analyzer dist/analyzer-${{ matrix.suffix }}
-            cp target/${{ matrix.target }}/release/multi-stresser dist/multi-stresser-${{ matrix.suffix }}
-          fi
-        shell: bash
+          copy target\\${{ matrix.target }}\\release\\dolphinx.exe dist\\dolphinx-${{ matrix.suffix }}.exe
+          copy target\\${{ matrix.target }}\\release\\analyzer.exe dist\\analyzer-${{ matrix.suffix }}.exe
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.suffix }}
-          path: dist/
+          name: dolphinx-${{ matrix.suffix }}
+          path: dist/*
 
-      - name: Upload to Release
+      - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:

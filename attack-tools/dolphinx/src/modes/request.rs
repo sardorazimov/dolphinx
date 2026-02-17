@@ -27,7 +27,8 @@ const USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (X11; Linux x86_64)",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0)",
     "curl/7.81.0",
-    "multi-stresser/0.1",
+    "dolphinx/0.1",
+
 ];
 
 // Paths
