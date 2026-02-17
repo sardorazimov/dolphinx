@@ -2,6 +2,8 @@ mod config;
 mod stats;
 mod worker;
 mod modes;
+mod metrics;
+
 
 use config::Config;
 use stats::Stats;
