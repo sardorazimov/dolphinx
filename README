@@ -15,6 +15,28 @@ Tools:
 - multi-stresser → high-concurrency connection stress tester
 - (planned) port scanner
 - (planned) slowloris simulator
+ ## 🚀 Kullanım örnekleri
+
+Normal:
+
+cargo run --release -- 127.0.0.1:8081 10000 1000
+
+
+Hold mode:
+
+cargo run --release -- 127.0.0.1:8081 10000 1000 hold
+
+
+Infinite mode:
+
+cargo run --release -- 127.0.0.1:8081 10000 1000 infinite
+
+
+Infinite hold mode :
+
+cargo run --release -- 127.0.0.1:8081 10000 1000 hold infinite
+ 
+  ###
 
 ---
 
