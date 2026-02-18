@@ -4,6 +4,9 @@ mod worker;
 mod modes;
 mod metrics;
 mod benchmark;
+mod attack;
+
+
 
 use config::Config;
 use stats::Stats;
@@ -32,10 +35,27 @@ DOLPHINX v{}
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
+        attack::scan::port::scanner::scan_target(
+        "127.0.0.1",
+        1,
+        100,
+        50
+    ).await;
+
 
     // VERSION
     if args.contains(&"--version".to_string()) || args.contains(&"-v".to_string()) {
         println!("dolphinx {}", VERSION);
+        return;
+    }
+    // SCAN MODE
+    if args.len() >= 3 && args[1] == "scan" {
+        let target = args[2].clone();
+
+        println!("Starting scan on {}", target);
+
+        attack::scan::port::scanner::scan_target(&target, 1, 1024, 500).await;
+
         return;
     }
 

@@ -16,12 +16,12 @@ pub async fn run(
     report_file: Option<String>,
 ) {
 
-    println!("Benchmark started...\n");
+    println!("Benchmark started on {}\n", target);
 
-    let mut rate = 100;
-    let mut max_stable = 0;
-    let mut peak_tested = 0;
-    let mut final_efficiency = 0.0;
+    let mut rate: u64 = 100;
+    let mut max_stable: u64 = 0;
+    let mut peak_tested: u64 = 0;
+    let mut final_efficiency: f64 = 0.0;
 
     loop {
 
@@ -46,9 +46,11 @@ pub async fn run(
 
             });
 
-            sleep(Duration::from_secs_f64(
-                1.0 / rate as f64
-            )).await;
+            sleep(
+                Duration::from_secs_f64(
+                    1.0 / rate as f64
+                )
+            ).await;
 
         }
 
@@ -60,24 +62,34 @@ pub async fn run(
         let failed =
             stats.failed.load(Ordering::Relaxed);
 
-        let total = success + failed;
+        let total =
+            success + failed;
 
         let efficiency =
             if total > 0 {
                 success as f64 / total as f64
-            } else {
+            }
+            else {
                 1.0
             };
 
         peak_tested = rate;
         final_efficiency = efficiency * 100.0;
 
+        println!(
+            "Result: success={} failed={} efficiency={:.2}%",
+            success,
+            failed,
+            final_efficiency
+        );
+
         if efficiency > 0.99 {
 
             max_stable = rate;
             rate *= 2;
 
-        } else {
+        }
+        else {
 
             break;
 
@@ -89,28 +101,15 @@ pub async fn run(
 
     }
 
-    println!("\nRESULT");
-    println!("------");
+    println!("\nBenchmark complete.");
+    println!("Max stable speed : {} conn/sec", max_stable);
+    println!("Peak tested      : {} conn/sec", peak_tested);
+    println!("Efficiency       : {:.2}%", final_efficiency);
 
-    println!(
-        "Max stable speed: {} conn/sec",
-        max_stable
-    );
-
-    println!(
-        "Peak tested: {} conn/sec",
-        peak_tested
-    );
-
-    println!(
-        "Efficiency: {:.2}%",
-        final_efficiency
-    );
-
-    // WRITE REPORT
     if let Some(path) = report_file {
 
-        let timestamp = Utc::now().to_rfc3339();
+        let timestamp =
+            Utc::now().to_rfc3339();
 
         let json = format!(
             r#"{{
@@ -128,11 +127,13 @@ pub async fn run(
         );
 
         let mut file =
-            File::create(path).unwrap();
+            File::create(path)
+            .expect("Failed to create report file");
 
-        file.write_all(json.as_bytes()).unwrap();
+        file.write_all(json.as_bytes())
+            .expect("Failed to write report");
 
-        println!("\nReport saved.");
+        println!("Report saved.");
 
     }
 
