@@ -5,7 +5,7 @@ mod modes;
 mod metrics;
 mod benchmark;
 mod attack;
-
+mod scanner;
 
 
 use config::Config;
@@ -16,6 +16,13 @@ use std::env;
 
 use tokio::sync::Semaphore;
 use tokio::time::{ sleep, Duration };
+
+use crate::scanner::engine::scan_target;
+
+use dolphinx::telemetry::save_recon;
+
+
+
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -34,45 +41,33 @@ DOLPHINX v{}
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = env::args().collect();
-        attack::scan::port::scanner::scan_target(
-        "127.0.0.1",
-        1,
-        100,
-        50
-    ).await;
 
+    let args: Vec<String> = env::args().collect();
 
     // VERSION
     if args.contains(&"--version".to_string()) || args.contains(&"-v".to_string()) {
         println!("dolphinx {}", VERSION);
         return;
     }
-    // SCAN MODE
-    if args.len() >= 3 && args[1] == "scan" {
-        let target = args[2].clone();
-
-        println!("Starting scan on {}", target);
-
-        attack::scan::port::scanner::scan_target(&target, 1, 1024, 500).await;
-
-        return;
-    }
 
     // HELP
     if args.contains(&"--help".to_string()) || args.contains(&"-h".to_string()) {
         print_banner();
+
         println!("Usage:");
-        println!("dolphinx <target> <connections> <concurrency>");
+        println!("dolphinx scan <target>         → attack port scan");
+        println!("dolphinx recon <target>        → recon + service detection");
         println!("dolphinx --benchmark <target>");
+        println!("dolphinx <target> <conn> <concurrency>");
+
         return;
     }
 
     // BENCHMARK MODE
     if args.contains(&"--benchmark".to_string()) {
+
         if args.len() < 3 {
-            println!("Usage:");
-            println!("dolphinx --benchmark <target>");
+            println!("Usage: dolphinx --benchmark <target>");
             return;
         }
 
@@ -81,12 +76,13 @@ async fn main() {
         let target = args[2].clone();
 
         let report = if args.contains(&"--report".to_string()) {
-            let index = args
-                .iter()
+
+            let index = args.iter()
                 .position(|x| x == "--report")
                 .unwrap();
 
             Some(args[index + 1].clone())
+
         } else {
             None
         };
@@ -96,7 +92,42 @@ async fn main() {
         return;
     }
 
-    // NORMAL MODE
+    // ATTACK PORT SCAN MODE
+    if args.len() >= 3 && args[1] == "scan" {
+
+        let target = args[2].clone();
+
+        print_banner();
+
+        println!("Starting ATTACK port scan on {}\n", target);
+
+        attack::scan::port::scanner::scan_target(
+            &target,
+            1,
+            1024,
+            500
+        ).await;
+
+        return;
+    }
+
+    // RECON MODE (NEW)
+    if args.len() >= 3 && args[1] == "recon" {
+
+        let target = args[2].clone();
+
+        print_banner();
+
+        println!("Starting RECON scan on {}\n", target);
+
+        let result = scan_target(&target).await;
+
+        println!("Recon Results:\n{:#?}", result);
+
+        return;
+    }
+
+    // NORMAL ATTACK MODE
     print_banner();
 
     let config = Config::from_args();
@@ -116,23 +147,38 @@ async fn main() {
 }
 
 async fn run(config: Config, semaphore: Arc<Semaphore>, stats: Arc<Stats>) {
+
     let delay = match config.rate {
+
         Some(rate) => Duration::from_secs_f64(1.0 / (rate as f64)),
 
         None => Duration::from_secs(0),
     };
 
     if config.infinite {
+
         loop {
-            spawn_connection(&config, semaphore.clone(), stats.clone()).await;
+
+            spawn_connection(
+                &config,
+                semaphore.clone(),
+                stats.clone()
+            ).await;
 
             if delay.as_nanos() > 0 {
                 sleep(delay).await;
             }
         }
+
     } else {
+
         for _ in 0..config.connections {
-            spawn_connection(&config, semaphore.clone(), stats.clone()).await;
+
+            spawn_connection(
+                &config,
+                semaphore.clone(),
+                stats.clone()
+            ).await;
 
             if delay.as_nanos() > 0 {
                 sleep(delay).await;
@@ -141,22 +187,29 @@ async fn run(config: Config, semaphore: Arc<Semaphore>, stats: Arc<Stats>) {
     }
 }
 
-async fn spawn_connection(config: &Config, semaphore: Arc<Semaphore>, stats: Arc<Stats>) {
+async fn spawn_connection(
+    config: &Config,
+    semaphore: Arc<Semaphore>,
+    stats: Arc<Stats>
+) {
+
     let target = config.target.clone();
 
-    let hold = config.hold; // ✅ COPY değer
+    let hold = config.hold;
 
     let stats_clone = stats.clone();
 
     tokio::spawn(async move {
+
         let permit = semaphore.acquire().await.unwrap();
 
         worker::connect_worker(
             target,
             stats_clone,
-            hold // ✅ artık safe
+            hold
         ).await;
 
         drop(permit);
+
     });
 }
