@@ -19,8 +19,6 @@ use tokio::time::{ sleep, Duration };
 
 use crate::scanner::engine::scan_target;
 
-use dolphinx::telemetry::save_recon;
-
 
 
 
@@ -123,6 +121,12 @@ async fn main() {
         let result = scan_target(&target).await;
 
         println!("Recon Results:\n{:#?}", result);
+
+        if let Ok(json) = serde_json::to_string_pretty(&result) {
+            let _ = std::fs::create_dir_all("defense-lab");
+            let _ = std::fs::write("defense-lab/recon.json", json);
+            println!("Recon saved to defense-lab/recon.json");
+        }
 
         return;
     }

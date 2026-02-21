@@ -1,4 +1,5 @@
 use futures::future::join_all;
+use serde::Serialize;
 
 use crate::scanner::port_scanner::scan_ports;
 use crate::scanner::service_detector::{
@@ -9,7 +10,7 @@ use crate::scanner::service_detector::{
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ScanResult {
 
     pub host: String,

@@ -9,7 +9,7 @@ use serde::Serialize;
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ServiceInfo {
     pub host: String,
     pub port: u16,

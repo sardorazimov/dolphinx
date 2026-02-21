@@ -1,13 +1,15 @@
+mod logger;
+
 use tokio::net::TcpListener;
 use tokio::io::AsyncReadExt;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use std::fs::{OpenOptions, create_dir_all};
 use std::io::Write;
 
-use chrono::{Utc, Datelike};
+use chrono::Utc;
 
 
 
@@ -27,13 +29,27 @@ async fn main() {
     let connections: Arc<Mutex<HashMap<String, usize>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
+    let blocked_ips: Arc<Mutex<HashSet<String>>> =
+        Arc::new(Mutex::new(HashSet::new()));
+
     loop {
 
         let (mut socket, addr) = listener.accept().await.unwrap();
 
         let ip = addr.ip().to_string();
 
+        // Drop connection immediately if IP is blocked
+        {
+            let blocked = blocked_ips.lock().unwrap();
+            if blocked.contains(&ip) {
+                println!("BLOCKED: {} (connection dropped)", ip);
+                drop(socket);
+                continue;
+            }
+        }
+
         let connections = connections.clone();
+        let blocked_ips = blocked_ips.clone();
 
         tokio::spawn(async move {
 
@@ -51,9 +67,14 @@ async fn main() {
 
             if *count == ATTACK_THRESHOLD {
 
-                println!("ATTACK DETECTED: {}", ip);
+                println!("ATTACK DETECTED: {} — blocking IP", ip);
 
-                log_attack(&ip, *count);
+                logger::log_attack(&ip, *count);
+
+                save_attack_info(&ip, *count);
+
+                // Block the IP (move ip, no more uses after this)
+                blocked_ips.lock().unwrap().insert(ip);
 
             }
 
@@ -64,22 +85,11 @@ async fn main() {
 }
 
 
-// NEW: production log rotation system
-fn log_attack(ip: &str, connections: usize) {
+fn save_attack_info(ip: &str, connections: usize) {
 
-    // create logs folder
     create_dir_all("logs").ok();
 
-    let now = Utc::now();
-
-    let filename = format!(
-        "logs/attack-{:04}-{:02}-{:02}.json",
-        now.year(),
-        now.month(),
-        now.day()
-    );
-
-    let timestamp = now.to_rfc3339();
+    let timestamp = Utc::now().to_rfc3339();
 
     let threat = if connections > 1000 {
         "CRITICAL"
@@ -89,8 +99,8 @@ fn log_attack(ip: &str, connections: usize) {
         "MEDIUM"
     };
 
-    let log_entry = format!(
-        "{{\"ip\":\"{}\",\"connections\":{},\"threat\":\"{}\",\"timestamp\":\"{}\"}}\n",
+    let entry = format!(
+        "{{\"ip\":\"{}\",\"connections\":{},\"threat\":\"{}\",\"timestamp\":\"{}\",\"action\":\"blocked\"}}\n",
         ip,
         connections,
         threat,
@@ -100,9 +110,9 @@ fn log_attack(ip: &str, connections: usize) {
     if let Ok(mut file) = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(filename)
+        .open("logs/attack-info.json")
     {
-        let _ = file.write_all(log_entry.as_bytes());
+        let _ = file.write_all(entry.as_bytes());
     }
 
 }
